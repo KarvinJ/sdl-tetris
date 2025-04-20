@@ -1,61 +1,301 @@
 #include "sdl_starter.h"
 #include "sdl_assets_loader.h"
-#include <time.h>
-#include <string>
+#include <iostream>
+#include <vector>
+#include <map>
 
 SDL_Window *window = nullptr;
 SDL_Renderer *renderer = nullptr;
 SDL_GameController *controller = nullptr;
 
-Mix_Chunk *actionSound = nullptr;
+Mix_Chunk *pauseSound = nullptr;
 Mix_Music *music = nullptr;
 
-Sprite playerSprite;
-
-const int PLAYER_SPEED = 600;
-
-bool isGamePaused;
+TTF_Font *font = nullptr;
 
 SDL_Texture *pauseTexture = nullptr;
 SDL_Rect pauseBounds;
 
-SDL_Texture *scoreTexture = nullptr;
-SDL_Rect scoreBounds;
+const int TOTAL_ROWS = 20;
+const int TOTAL_COLUMNS = 10;
+const int CELL_SIZE = 30;
+
+int grid[TOTAL_ROWS][TOTAL_COLUMNS];
+
+const int POSITION_OFFSET = 11;
+const int CELL_OFFSET = 1;
+
+bool isGamePaused;
+bool isGameOver;
 
 int score;
 
-TTF_Font *fontSquare = nullptr;
+SDL_Texture *scoreTexture = nullptr;
+SDL_Rect scoreBounds;
 
-SDL_Rect ball = {SCREEN_WIDTH / 2 + 50, SCREEN_HEIGHT / 2, 32, 32};
+Mix_Music *rotateSound = nullptr;
+Mix_Music *clearRowSound = nullptr;
 
-int ballVelocityX = 400;
-int ballVelocityY = 400;
-
-int colorIndex;
-
-SDL_Color colors[] = {
-    {128, 128, 128, 0}, // gray
-    {255, 255, 255, 0}, // white
-    {255, 0, 0, 0},     // red
-    {0, 255, 0, 0},     // green
-    {0, 0, 255, 0},     // blue
-    {255, 255, 0, 0},   // brown
-    {0, 255, 255, 0},   // cyan
-    {255, 0, 255, 0},   // purple
-};
-
-void quitGame()
+// Vector2, 2 components
+typedef struct Vector2
 {
-    Mix_FreeMusic(music);
-    Mix_FreeChunk(actionSound);
-    SDL_DestroyTexture(playerSprite.texture);
-    SDL_DestroyTexture(pauseTexture);
-    SDL_DestroyRenderer(renderer);
-    SDL_DestroyWindow(window);
-    Mix_CloseAudio();
-    IMG_Quit();
-    TTF_Quit();
-    SDL_Quit();
+    float x; // Vector x component
+    float y; // Vector y component
+} Vector2;
+
+typedef struct
+{
+    int id;
+    std::map<int, std::vector<Vector2>> cells;
+    int rotationState;
+    int columnOffset;
+    int rowOffset;
+} Block;
+
+Block lBlock;
+Block jBlock;
+Block iBlock;
+Block oBlock;
+Block sBlock;
+Block tBlock;
+Block zBlock;
+Block currentBlock;
+Block nextBlock;
+
+std::vector<Block> blocks;
+
+std::vector<Vector2> getCellPositions(Block &block)
+{
+    // getting the reference of the vector instead of copying to create a new one.
+    std::vector<Vector2> &blockTiles = block.cells[block.rotationState];
+
+    std::vector<Vector2> movedTiles;
+    movedTiles.reserve(blockTiles.size());
+
+    for (Vector2 blockTile : blockTiles)
+    {
+        Vector2 newPosition = {blockTile.x + block.rowOffset, blockTile.y + block.columnOffset};
+        movedTiles.push_back(newPosition);
+    }
+
+    return movedTiles;
+}
+
+bool isCellOutside(int cellRow, int cellColumn)
+{
+    if (cellRow >= 0 && cellRow < TOTAL_ROWS && cellColumn >= 0 && cellColumn < TOTAL_COLUMNS)
+    {
+        return false;
+    }
+
+    return true;
+}
+
+bool isBlockOutside(Block &block)
+{
+    std::vector<Vector2> blockTiles = getCellPositions(block);
+
+    for (Vector2 blockTile : blockTiles)
+    {
+        if (isCellOutside(blockTile.x, blockTile.y))
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+void undoRotation(Block &block)
+{
+    block.rotationState--;
+
+    if (block.rotationState == -1)
+    {
+        block.rotationState = block.cells.size() - 1;
+    }
+}
+
+bool isCellEmpty(int rowToCheck, int columnToCheck)
+{
+    if (grid[rowToCheck][columnToCheck] == 0)
+    {
+        return true;
+    }
+
+    return false;
+}
+
+bool blockFits(Block &block)
+{
+    auto blockCells = getCellPositions(block);
+
+    // I need to write in the grid the id of the block that I'm going to lock
+    for (Vector2 blockCell : blockCells)
+    {
+        if (!isCellEmpty(blockCell.x, blockCell.y))
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+void rotateBlock(Block &block)
+{
+    block.rotationState++;
+
+    if (block.rotationState == (int)block.cells.size())
+    {
+        block.rotationState = 0;
+    }
+
+    if (isBlockOutside(block) || !blockFits(currentBlock))
+    {
+        undoRotation(block);
+    }
+}
+
+void moveBlock(Block &block, int rowsToMove, int columnsToMove)
+{
+    block.rowOffset += rowsToMove;
+    block.columnOffset += columnsToMove;
+}
+
+int rand_range(int min, int max)
+{
+    return min + rand() / (RAND_MAX / (max - min + 1) + 1);
+}
+
+Block getRandomBlock()
+{
+    if (blocks.empty())
+    {
+        blocks = {lBlock, jBlock, iBlock, oBlock, sBlock, tBlock, zBlock};
+    }
+
+    int randomIndex = rand_range(0, blocks.size() - 1);
+
+    Block actualBlock = blocks[randomIndex];
+    blocks.erase(blocks.begin() + randomIndex);
+
+    return actualBlock;
+}
+
+bool isRowFull(int rowToCheck)
+{
+    for (int column = 0; column < TOTAL_COLUMNS; column++)
+    {
+        if (grid[rowToCheck][column] == 0)
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+void clearRow(int rowToClear)
+{
+    for (int column = 0; column < TOTAL_COLUMNS; column++)
+    {
+        grid[rowToClear][column] = 0;
+    }
+}
+
+void moveRowDown(int row, int totalRows)
+{
+    for (int column = 0; column < TOTAL_COLUMNS; column++)
+    {
+        grid[row + totalRows][column] = grid[row][column];
+        grid[row][column] = 0;
+    }
+}
+
+int clearFullRow()
+{
+    int completedRow = 0;
+    for (int row = TOTAL_ROWS - 1; row >= 0; row--)
+    {
+        if (isRowFull(row))
+        {
+            clearRow(row);
+            completedRow++;
+            // PlaySound(clearRowSound);
+        }
+        else if (completedRow > 0)
+        {
+            moveRowDown(row, completedRow);
+        }
+    }
+
+    return completedRow;
+}
+
+void lockBlock(Block &block)
+{
+    auto blockCells = getCellPositions(block);
+
+    // I need to write in the grid the id of the block that I'm going to lock
+    for (Vector2 blockCell : blockCells)
+    {
+        grid[(int)blockCell.x][(int)blockCell.y] = block.id;
+    }
+
+    // and then update the current and next blocks.
+    block = nextBlock;
+
+    if (!blockFits(block))
+    {
+        isGameOver = true;
+    }
+
+    nextBlock = getRandomBlock();
+
+    int totalClearRows = clearFullRow();
+
+    if (totalClearRows == 1)
+    {
+        score += 100;
+    }
+
+    else if (totalClearRows == 2)
+    {
+        score += 300;
+    }
+
+    else if (totalClearRows > 2)
+    {
+        score += 500;
+    }
+}
+
+void initializeGrid()
+{
+    for (int row = 0; row < TOTAL_ROWS; row++)
+    {
+        for (int column = 0; column < TOTAL_COLUMNS; column++)
+        {
+            grid[row][column] = 0;
+        }
+    }
+}
+
+double lastUpdateTime = 0;
+
+bool eventTriggered(float deltaTime, float intervalUpdate)
+{
+    lastUpdateTime += deltaTime;
+
+    if (lastUpdateTime >= intervalUpdate)
+    {
+        lastUpdateTime = 0;
+
+        return true;
+    }
+
+    return false;
 }
 
 void handleEvents()
@@ -66,7 +306,6 @@ void handleEvents()
     {
         if (event.type == SDL_QUIT || event.key.keysym.sym == SDLK_ESCAPE)
         {
-            quitGame();
             exit(0);
         }
 
@@ -74,127 +313,279 @@ void handleEvents()
         if (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_SPACE)
         {
             isGamePaused = !isGamePaused;
-            Mix_PlayChannel(-1, actionSound, 0);
+            Mix_PlayChannel(-1, pauseSound, 0);
         }
 
         if (event.type == SDL_CONTROLLERBUTTONDOWN && event.cbutton.button == SDL_CONTROLLER_BUTTON_START)
         {
             isGamePaused = !isGamePaused;
-            Mix_PlayChannel(-1, actionSound, 0);
+            Mix_PlayChannel(-1, pauseSound, 0);
         }
     }
-}
-
-int rand_range(int min, int max)
-{
-    return min + rand() / (RAND_MAX / (max - min + 1) + 1);
 }
 
 void update(float deltaTime)
 {
     const Uint8 *currentKeyStates = SDL_GetKeyboardState(NULL);
 
+    if (isGameOver && currentKeyStates != 0)
+    {
+        initializeGrid();
+        isGameOver = false;
+        score = 0;
+        currentBlock = getRandomBlock();
+        nextBlock = getRandomBlock();
+    }
+
     // keyboard
-    if (currentKeyStates[SDL_SCANCODE_W] && playerSprite.bounds.y > 0)
+    if (!isGameOver && currentKeyStates[SDL_SCANCODE_W])
     {
-        playerSprite.bounds.y -= PLAYER_SPEED * deltaTime;
+        rotateBlock(currentBlock);
+        // PlaySound(rotateSound);
     }
 
-    else if (currentKeyStates[SDL_SCANCODE_S] && playerSprite.bounds.y < SCREEN_HEIGHT - playerSprite.bounds.h)
+    if (!isGameOver && currentKeyStates[SDL_SCANCODE_D])
     {
-        playerSprite.bounds.y += PLAYER_SPEED * deltaTime;
+        moveBlock(currentBlock, 0, 1);
+
+        if (isBlockOutside(currentBlock) || !blockFits(currentBlock))
+        {
+            moveBlock(currentBlock, 0, -1);
+        }
     }
 
-    else if (currentKeyStates[SDL_SCANCODE_A] && playerSprite.bounds.x > 0)
+    else if (!isGameOver && currentKeyStates[SDL_SCANCODE_A])
     {
-        playerSprite.bounds.x -= PLAYER_SPEED * deltaTime;
+        moveBlock(currentBlock, 0, -1);
+
+        if (isBlockOutside(currentBlock) || !blockFits(currentBlock))
+        {
+            moveBlock(currentBlock, 0, 1);
+        }
     }
 
-    else if (currentKeyStates[SDL_SCANCODE_D] && playerSprite.bounds.x < SCREEN_WIDTH - playerSprite.bounds.w)
+    if (!isGameOver && currentKeyStates[SDL_SCANCODE_S])
     {
-        playerSprite.bounds.x += PLAYER_SPEED * deltaTime;
+        score++;
+        moveBlock(currentBlock, 1, 0);
+
+        if (isBlockOutside(currentBlock) || !blockFits(currentBlock))
+        {
+            moveBlock(currentBlock, -1, 0);
+            lockBlock(currentBlock);
+        }
+    }
+
+    if (!isGameOver && eventTriggered(deltaTime, 0.5))
+    {
+        moveBlock(currentBlock, 1, 0);
+
+        if (isBlockOutside(currentBlock) || !blockFits(currentBlock))
+        {
+            moveBlock(currentBlock, -1, 0);
+            lockBlock(currentBlock);
+        }
     }
 
     // controller
-    if (SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_DPAD_UP) && playerSprite.bounds.y > 0)
+    if (SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_DPAD_UP))
     {
-        playerSprite.bounds.y -= PLAYER_SPEED * deltaTime;
     }
 
-    else if (SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_DPAD_DOWN) && playerSprite.bounds.y < SCREEN_HEIGHT - playerSprite.bounds.h)
+    else if (SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_DPAD_DOWN))
     {
-        playerSprite.bounds.y += PLAYER_SPEED * deltaTime;
     }
 
-    else if (SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_DPAD_LEFT) && playerSprite.bounds.x > 0)
+    else if (SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_DPAD_LEFT))
     {
-        playerSprite.bounds.x -= PLAYER_SPEED * deltaTime;
     }
 
-    else if (SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_DPAD_RIGHT) && playerSprite.bounds.x < SCREEN_WIDTH - playerSprite.bounds.w)
+    else if (SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_DPAD_RIGHT))
     {
-        playerSprite.bounds.x += PLAYER_SPEED * deltaTime;
     }
+}
 
-    if (ball.x < 0 || ball.x > SCREEN_WIDTH - ball.w)
+void initializeBlocks()
+{
+    // defining Blocks 4 rotations with a map id and vector2 2
+    lBlock.id = 1;
+    lBlock.cells[0] = {{0, 2}, {1, 0}, {1, 1}, {1, 2}};
+    lBlock.cells[1] = {{0, 1}, {1, 1}, {2, 1}, {2, 2}};
+    lBlock.cells[2] = {{1, 0}, {1, 1}, {1, 2}, {2, 0}};
+    lBlock.cells[3] = {{0, 0}, {0, 1}, {1, 1}, {2, 1}};
+    // for all the block to start in the midle of the grid, I need to move to the (0, 3)
+    moveBlock(lBlock, 0, 3);
+
+    jBlock.id = 2;
+    jBlock.cells[0] = {{0, 0}, {1, 0}, {1, 1}, {1, 2}};
+    jBlock.cells[1] = {{0, 1}, {0, 2}, {1, 1}, {2, 1}};
+    jBlock.cells[2] = {{1, 0}, {1, 1}, {1, 2}, {2, 2}};
+    jBlock.cells[3] = {{0, 1}, {1, 1}, {2, 0}, {2, 1}};
+
+    moveBlock(jBlock, 0, 3);
+
+    iBlock.id = 3;
+    iBlock.cells[0] = {{1, 0}, {1, 1}, {1, 2}, {1, 3}};
+    iBlock.cells[1] = {{0, 2}, {1, 2}, {2, 2}, {3, 2}};
+    iBlock.cells[2] = {{2, 0}, {2, 1}, {2, 2}, {2, 3}};
+    iBlock.cells[3] = {{0, 1}, {1, 1}, {2, 1}, {3, 1}};
+
+    moveBlock(iBlock, -1, 3);
+
+    // I don't need rotaion with this block
+    oBlock.id = 4;
+    oBlock.cells[0] = {{0, 0}, {0, 1}, {1, 0}, {1, 1}};
+
+    moveBlock(oBlock, 0, 4);
+
+    sBlock.id = 5;
+    sBlock.cells[0] = {{0, 1}, {0, 2}, {1, 0}, {1, 1}};
+    sBlock.cells[1] = {{0, 1}, {1, 1}, {1, 2}, {2, 2}};
+    sBlock.cells[2] = {{1, 1}, {1, 2}, {2, 0}, {2, 1}};
+    sBlock.cells[3] = {{0, 0}, {1, 0}, {1, 1}, {2, 1}};
+
+    moveBlock(sBlock, 0, 3);
+
+    tBlock.id = 6;
+    tBlock.cells[0] = {{0, 1}, {1, 0}, {1, 1}, {1, 2}};
+    tBlock.cells[1] = {{0, 1}, {1, 1}, {1, 2}, {2, 1}};
+    tBlock.cells[2] = {{1, 0}, {1, 1}, {1, 2}, {2, 1}};
+    tBlock.cells[3] = {{0, 1}, {1, 0}, {1, 1}, {2, 1}};
+
+    moveBlock(tBlock, 0, 3);
+
+    zBlock.id = 7;
+    zBlock.cells[0] = {{0, 0}, {0, 1}, {1, 1}, {1, 2}};
+    zBlock.cells[1] = {{0, 2}, {1, 1}, {1, 2}, {2, 1}};
+    zBlock.cells[2] = {{1, 0}, {1, 1}, {2, 1}, {2, 2}};
+    zBlock.cells[3] = {{0, 1}, {1, 0}, {1, 1}, {2, 0}};
+
+    moveBlock(zBlock, 0, 3);
+
+    blocks.reserve(7);
+    blocks = {lBlock, jBlock, iBlock, oBlock, sBlock, tBlock, zBlock};
+
+    currentBlock = getRandomBlock();
+    nextBlock = getRandomBlock();
+}
+
+SDL_Color getColorByIndex(int index)
+{
+    const SDL_Color darkGrey = {26, 31, 40, 255};
+    const SDL_Color green = {47, 230, 23, 255};
+    const SDL_Color red = {232, 18, 18, 255};
+    const SDL_Color orange = {226, 116, 17, 255};
+    const SDL_Color yellow = {237, 234, 4, 255};
+    const SDL_Color purple = {166, 0, 247, 255};
+    const SDL_Color cyan = {21, 204, 209, 255};
+    const SDL_Color blue = {13, 64, 216, 255};
+
+    SDL_Color colors[] = {darkGrey, green, red, orange, yellow, purple, cyan, blue};
+
+    return colors[index];
+}
+
+void drawGrid()
+{
+    for (int row = 0; row < TOTAL_ROWS; row++)
     {
-        ballVelocityX *= -1;
-        colorIndex = rand_range(0, 5);
-    }
+        for (int column = 0; column < TOTAL_COLUMNS; column++)
+        {
+            int cellValue = grid[row][column];
 
-    else if (ball.y < 0 || ball.y > SCREEN_HEIGHT - ball.h)
+            SDL_Color cellColor = getColorByIndex(cellValue);
+            SDL_SetRenderDrawColor(renderer, cellColor.r, cellColor.g, cellColor.b, cellColor.a);
+
+            SDL_Rect rect = {column * CELL_SIZE + POSITION_OFFSET, row * CELL_SIZE + POSITION_OFFSET, CELL_SIZE - CELL_OFFSET, CELL_SIZE - CELL_OFFSET};
+            SDL_RenderFillRect(renderer, &rect);
+        }
+    }
+}
+
+void drawBlock(Block &block, int offsetX, int offsetY)
+{
+    std::vector<Vector2> blockTiles = getCellPositions(block);
+
+    for (Vector2 blockTile : blockTiles)
     {
-        ballVelocityY *= -1;
-        colorIndex = rand_range(0, 5);
-    }
+        SDL_Color cellColor = getColorByIndex(block.id);
+        SDL_SetRenderDrawColor(renderer, cellColor.r, cellColor.g, cellColor.b, cellColor.a);
 
-    else if (SDL_HasIntersection(&playerSprite.bounds, &ball))
+        SDL_Rect rect = {(int)blockTile.y * CELL_SIZE + offsetX, (int)blockTile.x * CELL_SIZE + offsetY, CELL_SIZE - CELL_OFFSET, CELL_SIZE - CELL_OFFSET};
+        SDL_RenderFillRect(renderer, &rect);
+    }
+}
+
+void drawBlock(Block &block)
+{
+    std::vector<Vector2> blockTiles = getCellPositions(block);
+
+    for (Vector2 blockTile : blockTiles)
     {
-        ballVelocityX *= -1;
-        ballVelocityY *= -1;
+        SDL_Color cellColor = getColorByIndex(block.id);
+        SDL_SetRenderDrawColor(renderer, cellColor.r, cellColor.g, cellColor.b, cellColor.a);
 
-        colorIndex = rand_range(0, 5);
-
-        Mix_PlayChannel(-1, actionSound, 0);
-
-        score++;
-
-        std::string scoreString = "score: " + std::to_string(score);
-        updateTextureText(scoreTexture, scoreString.c_str(), fontSquare, renderer);
+        SDL_Rect rect = {(int)blockTile.y * CELL_SIZE + POSITION_OFFSET, (int)blockTile.x * CELL_SIZE + POSITION_OFFSET, CELL_SIZE - CELL_OFFSET, CELL_SIZE - CELL_OFFSET};
+        SDL_RenderFillRect(renderer, &rect);
     }
-
-    ball.x += ballVelocityX * deltaTime;
-    ball.y += ballVelocityY * deltaTime;
 }
 
 void render()
 {
-    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+    SDL_SetRenderDrawColor(renderer, 44, 44, 127, 255);
     SDL_RenderClear(renderer);
 
-    SDL_SetRenderDrawColor(renderer, colors[colorIndex].r, colors[colorIndex].g, colors[colorIndex].b, 255);
+    drawGrid();
 
-    SDL_RenderFillRect(renderer, &ball);
+    drawBlock(currentBlock);
 
-    renderSprite(renderer, playerSprite);
+    SDL_QueryTexture(scoreTexture, NULL, NULL, &scoreBounds.w, &scoreBounds.h);
+    scoreBounds.x = 365;
+    scoreBounds.y = 15;
+    SDL_RenderCopy(renderer, scoreTexture, NULL, &scoreBounds);
+
+    const SDL_Color lightBlue = {59, 85, 162, 255};
+
+    SDL_SetRenderDrawColor(renderer, lightBlue.r, lightBlue.g, lightBlue.b, lightBlue.a);
+
+    SDL_Rect scorePlaceHolderRect = {320, 55, 170, 60};
+    SDL_RenderFillRect(renderer, &scorePlaceHolderRect);
+
+    SDL_Rect nextBlockPlaceHolderRect = {320, 215, 170, 180};
+    SDL_RenderFillRect(renderer, &nextBlockPlaceHolderRect);
+
+    if (nextBlock.id == 3)
+    {
+        drawBlock(nextBlock, 255, 290);
+    }
+
+    else if (nextBlock.id == 4)
+    {
+        drawBlock(nextBlock, 255, 280);
+    }
+
+    else
+    {
+        drawBlock(nextBlock, 275, 270);
+    }
+
+    //create gameover text
+    if (isGameOver)
+    {
+        SDL_RenderCopy(renderer, pauseTexture, NULL, &pauseBounds);
+    }
 
     if (isGamePaused)
     {
         SDL_RenderCopy(renderer, pauseTexture, NULL, &pauseBounds);
     }
 
-    SDL_QueryTexture(scoreTexture, NULL, NULL, &scoreBounds.w, &scoreBounds.h);
-    scoreBounds.x = 400;
-    scoreBounds.y = scoreBounds.h / 2;
-    SDL_RenderCopy(renderer, scoreTexture, NULL, &scoreBounds);
-
     SDL_RenderPresent(renderer);
 }
 
 int main(int argc, char *args[])
 {
-    window = SDL_CreateWindow("My Window", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN);
-
+    window = SDL_CreateWindow("My Window", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, TOTAL_COLUMNS * CELL_SIZE + 200, TOTAL_ROWS * CELL_SIZE + 20, SDL_WINDOW_SHOWN);
     renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
 
     if (startSDL(window, renderer) > 0)
@@ -216,35 +607,24 @@ int main(int argc, char *args[])
         }
     }
 
-    // load font
-    fontSquare = TTF_OpenFont("res/fonts/square_sans_serif_7.ttf", 36);
+    font = TTF_OpenFont("res/fonts/monogram.ttf", 36);
 
-    // load title
-    updateTextureText(scoreTexture, "Score: 0", fontSquare, renderer);
-
-    updateTextureText(pauseTexture, "Game Paused", fontSquare, renderer);
+    updateTextureText(scoreTexture, "Score: 0", font, renderer);
+    updateTextureText(pauseTexture, "Game Paused", font, renderer);
 
     SDL_QueryTexture(pauseTexture, NULL, NULL, &pauseBounds.w, &pauseBounds.h);
-    pauseBounds.x = SCREEN_WIDTH / 2 - pauseBounds.w / 2;
-    pauseBounds.y = 100;
-    // After I use the &pauseBounds.w, &pauseBounds.h in the SDL_QueryTexture.
-    //  I get the width and height of the actual texture
+    pauseBounds.x = 320;
+    pauseBounds.y = 450;
 
-    playerSprite = loadSprite(renderer, "res/sprites/alien_1.png", SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2);
+    pauseSound = loadSound("res/sounds/okay.wav");
 
-    actionSound = loadSound("res/sounds/magic.wav");
+    music = loadMusic("res/music/music.mp3");
 
-    // method to reduce the volume of the sound in half.
-    Mix_VolumeChunk(actionSound, MIX_MAX_VOLUME / 2);
-
-    // Load music file (only one data piece, intended for streaming)
-    music = loadMusic("res/music/music.wav");
-
-    // reduce music volume in half
-    Mix_VolumeMusic(MIX_MAX_VOLUME / 2);
-
-    // Start playing streamed music, put -1 to loop indifinitely
     Mix_PlayMusic(music, -1);
+
+    initializeGrid();
+
+    initializeBlocks();
 
     Uint32 previousFrameTime = SDL_GetTicks();
     Uint32 currentFrameTime = previousFrameTime;
@@ -266,7 +646,15 @@ int main(int argc, char *args[])
         }
 
         render();
-
-        // capFrameRate(currentFrameTime);
     }
+
+    Mix_FreeMusic(music);
+    Mix_FreeChunk(pauseSound);
+    SDL_DestroyTexture(pauseTexture);
+    SDL_DestroyRenderer(renderer);
+    SDL_DestroyWindow(window);
+    Mix_CloseAudio();
+    IMG_Quit();
+    TTF_Quit();
+    SDL_Quit();
 }
