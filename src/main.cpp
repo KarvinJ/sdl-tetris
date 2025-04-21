@@ -317,7 +317,7 @@ void handleEvents()
             exit(0);
         }
 
-        if (isGameOver && event.type == SDL_KEYDOWN)
+        if (isGameOver && (event.type == SDL_KEYDOWN || event.type == SDL_CONTROLLERBUTTONDOWN))
         {
             initializeGrid();
             isGameOver = false;
@@ -359,10 +359,37 @@ void handleEvents()
             }
         }
 
+        // controller support
         if (event.type == SDL_CONTROLLERBUTTONDOWN && event.cbutton.button == SDL_CONTROLLER_BUTTON_START)
         {
             isGamePaused = !isGamePaused;
             Mix_PlayChannel(-1, pauseSound, 0);
+        }
+
+        if (event.type == SDL_CONTROLLERBUTTONDOWN && event.cbutton.button == SDL_CONTROLLER_BUTTON_DPAD_UP)
+        {
+            rotateBlock(currentBlock);
+            Mix_PlayChannel(-1, rotateSound, 0);
+        }
+
+        if (event.type == SDL_CONTROLLERBUTTONDOWN && event.cbutton.button == SDL_CONTROLLER_BUTTON_DPAD_RIGHT)
+        {
+            moveBlock(currentBlock, 0, 1);
+
+            if (isBlockOutside(currentBlock) || !blockFits(currentBlock))
+            {
+                moveBlock(currentBlock, 0, -1);
+            }
+        }
+
+        else if (event.type == SDL_CONTROLLERBUTTONDOWN && event.cbutton.button == SDL_CONTROLLER_BUTTON_DPAD_LEFT)
+        {
+            moveBlock(currentBlock, 0, -1);
+
+            if (isBlockOutside(currentBlock) || !blockFits(currentBlock))
+            {
+                moveBlock(currentBlock, 0, 1);
+            }
         }
     }
 }
@@ -372,6 +399,18 @@ void update(float deltaTime)
     const Uint8 *currentKeyStates = SDL_GetKeyboardState(NULL);
 
     if (!isGameOver && currentKeyStates[SDL_SCANCODE_S])
+    {
+        score++;
+        moveBlock(currentBlock, 1, 0);
+
+        if (isBlockOutside(currentBlock) || !blockFits(currentBlock))
+        {
+            moveBlock(currentBlock, -1, 0);
+            lockBlock(currentBlock);
+        }
+    }
+
+    if (!isGameOver && SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_DPAD_DOWN))
     {
         score++;
         moveBlock(currentBlock, 1, 0);
@@ -581,7 +620,7 @@ void render()
 int main(int argc, char *args[])
 {
     // SCREEN_WIDTH 10 * 30 = 300 + 200 = 500
-    // SCREEN_HEIGHT 18 * 30 = 540 + 4
+    // SCREEN_HEIGHT 18 * 30 = 540 + 4 = 544
     // need to give a extra offset of 200 width and 20 heigt for the ui
     window = SDL_CreateWindow("My Window", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, TOTAL_COLUMNS * CELL_SIZE + 200, TOTAL_ROWS * CELL_SIZE + 4, SDL_WINDOW_SHOWN);
     renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
