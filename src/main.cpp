@@ -459,7 +459,7 @@ void initializeBlocks()
 
 SDL_Color getColorByIndex(int index)
 {
-    const SDL_Color darkGrey = {26, 31, 40, 255};
+    const SDL_Color lightGrey = {80, 80, 80, 255};
     const SDL_Color green = {47, 230, 23, 255};
     const SDL_Color red = {232, 18, 18, 255};
     const SDL_Color orange = {226, 116, 17, 255};
@@ -468,7 +468,7 @@ SDL_Color getColorByIndex(int index)
     const SDL_Color cyan = {21, 204, 209, 255};
     const SDL_Color blue = {13, 64, 216, 255};
 
-    SDL_Color colors[] = {darkGrey, green, red, orange, yellow, purple, cyan, blue};
+    SDL_Color colors[] = {lightGrey, green, red, orange, yellow, purple, cyan, blue};
 
     return colors[index];
 }
@@ -520,16 +520,14 @@ void drawBlock(Block &block)
 
 void render()
 {
-    SDL_SetRenderDrawColor(renderer, 44, 44, 127, 255);
+    SDL_SetRenderDrawColor(renderer, 29, 29, 27, 255);
     SDL_RenderClear(renderer);
 
     drawGrid();
 
     drawBlock(currentBlock);
 
-    const SDL_Color lightBlue = {59, 85, 162, 255};
-
-    SDL_SetRenderDrawColor(renderer, lightBlue.r, lightBlue.g, lightBlue.b, lightBlue.a);
+    SDL_SetRenderDrawColor(renderer, 80, 80, 80, 255);
 
     SDL_RenderCopy(renderer, scoreTextTexture, NULL, &scoreTextBounds);
 
