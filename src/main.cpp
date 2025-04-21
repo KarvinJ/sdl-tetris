@@ -1,6 +1,5 @@
 #include "sdl_starter.h"
 #include "sdl_assets_loader.h"
-#include <iostream>
 #include <vector>
 #include <map>
 
@@ -33,8 +32,8 @@ int score;
 SDL_Texture *scoreTexture = nullptr;
 SDL_Rect scoreBounds;
 
-Mix_Music *rotateSound = nullptr;
-Mix_Music *clearRowSound = nullptr;
+Mix_Chunk *rotateSound = nullptr;
+Mix_Chunk *clearRowSound = nullptr;
 
 // Vector2, 2 components
 typedef struct Vector2
@@ -309,11 +308,46 @@ void handleEvents()
             exit(0);
         }
 
+        if (isGameOver && event.type == SDL_KEYDOWN)
+        {
+            initializeGrid();
+            isGameOver = false;
+            score = 0;
+            currentBlock = getRandomBlock();
+            nextBlock = getRandomBlock();
+        }
+
         // To handle key pressed more precise, I use this method for handling pause the game or jumping.
         if (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_SPACE)
         {
             isGamePaused = !isGamePaused;
             Mix_PlayChannel(-1, pauseSound, 0);
+        }
+
+        if (!isGameOver && event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_w)
+        {
+            rotateBlock(currentBlock);
+            Mix_PlayChannel(-1, rotateSound, 0);
+        }
+
+        if (!isGameOver && event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_d)
+        {
+            moveBlock(currentBlock, 0, 1);
+
+            if (isBlockOutside(currentBlock) || !blockFits(currentBlock))
+            {
+                moveBlock(currentBlock, 0, -1);
+            }
+        }
+
+        else if (!isGameOver && event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_a)
+        {
+            moveBlock(currentBlock, 0, -1);
+
+            if (isBlockOutside(currentBlock) || !blockFits(currentBlock))
+            {
+                moveBlock(currentBlock, 0, 1);
+            }
         }
 
         if (event.type == SDL_CONTROLLERBUTTONDOWN && event.cbutton.button == SDL_CONTROLLER_BUTTON_START)
@@ -327,42 +361,6 @@ void handleEvents()
 void update(float deltaTime)
 {
     const Uint8 *currentKeyStates = SDL_GetKeyboardState(NULL);
-
-    if (isGameOver && currentKeyStates != 0)
-    {
-        initializeGrid();
-        isGameOver = false;
-        score = 0;
-        currentBlock = getRandomBlock();
-        nextBlock = getRandomBlock();
-    }
-
-    // keyboard
-    if (!isGameOver && currentKeyStates[SDL_SCANCODE_W])
-    {
-        rotateBlock(currentBlock);
-        // PlaySound(rotateSound);
-    }
-
-    if (!isGameOver && currentKeyStates[SDL_SCANCODE_D])
-    {
-        moveBlock(currentBlock, 0, 1);
-
-        if (isBlockOutside(currentBlock) || !blockFits(currentBlock))
-        {
-            moveBlock(currentBlock, 0, -1);
-        }
-    }
-
-    else if (!isGameOver && currentKeyStates[SDL_SCANCODE_A])
-    {
-        moveBlock(currentBlock, 0, -1);
-
-        if (isBlockOutside(currentBlock) || !blockFits(currentBlock))
-        {
-            moveBlock(currentBlock, 0, 1);
-        }
-    }
 
     if (!isGameOver && currentKeyStates[SDL_SCANCODE_S])
     {
@@ -385,23 +383,6 @@ void update(float deltaTime)
             moveBlock(currentBlock, -1, 0);
             lockBlock(currentBlock);
         }
-    }
-
-    // controller
-    if (SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_DPAD_UP))
-    {
-    }
-
-    else if (SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_DPAD_DOWN))
-    {
-    }
-
-    else if (SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_DPAD_LEFT))
-    {
-    }
-
-    else if (SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_DPAD_RIGHT))
-    {
     }
 }
 
@@ -569,14 +550,15 @@ void render()
         drawBlock(nextBlock, 275, 270);
     }
 
-    //create gameover text
     if (isGameOver)
     {
+        updateTextureText(pauseTexture, "Game Over", font, renderer);
         SDL_RenderCopy(renderer, pauseTexture, NULL, &pauseBounds);
     }
 
     if (isGamePaused)
     {
+        updateTextureText(pauseTexture, "Game Pause", font, renderer);
         SDL_RenderCopy(renderer, pauseTexture, NULL, &pauseBounds);
     }
 
@@ -609,7 +591,7 @@ int main(int argc, char *args[])
 
     font = TTF_OpenFont("res/fonts/monogram.ttf", 36);
 
-    updateTextureText(scoreTexture, "Score: 0", font, renderer);
+    updateTextureText(scoreTexture, "Score", font, renderer);
     updateTextureText(pauseTexture, "Game Paused", font, renderer);
 
     SDL_QueryTexture(pauseTexture, NULL, NULL, &pauseBounds.w, &pauseBounds.h);
@@ -617,13 +599,11 @@ int main(int argc, char *args[])
     pauseBounds.y = 450;
 
     pauseSound = loadSound("res/sounds/okay.wav");
-
     music = loadMusic("res/music/music.mp3");
 
     Mix_PlayMusic(music, -1);
 
     initializeGrid();
-
     initializeBlocks();
 
     Uint32 previousFrameTime = SDL_GetTicks();
@@ -646,6 +626,9 @@ int main(int argc, char *args[])
         }
 
         render();
+
+        //capping the game at 60
+        capFrameRate(currentFrameTime);
     }
 
     Mix_FreeMusic(music);
