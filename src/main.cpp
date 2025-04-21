@@ -664,10 +664,10 @@ int main(int argc, char *args[])
     pauseBounds.y = 450;
 
     pauseSound = loadSound("res/sounds/okay.wav");
-    music = loadMusic("res/music/music.mp3");
+    music = loadMusic("res/music/music.wav");
 
-    clearRowSound = loadSound("res/sounds/clear.mp3");
-    rotateSound = loadSound("res/sounds/rotate.mp3");
+    clearRowSound = loadSound("res/sounds/clear.wav");
+    rotateSound = loadSound("res/sounds/rotate.wav");
 
     Mix_PlayMusic(music, -1);
 
