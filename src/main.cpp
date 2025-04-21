@@ -1,6 +1,7 @@
 #include "sdl_starter.h"
 #include "sdl_assets_loader.h"
 #include <vector>
+#include <string>
 #include <map>
 
 SDL_Window *window = nullptr;
@@ -29,8 +30,14 @@ bool isGameOver;
 
 int score;
 
+SDL_Texture *scoreTextTexture = nullptr;
+SDL_Rect scoreTextBounds;
+
 SDL_Texture *scoreTexture = nullptr;
 SDL_Rect scoreBounds;
+
+SDL_Texture *nextTexture = nullptr;
+SDL_Rect nextBounds;
 
 Mix_Chunk *rotateSound = nullptr;
 Mix_Chunk *clearRowSound = nullptr;
@@ -221,7 +228,7 @@ int clearFullRow()
         {
             clearRow(row);
             completedRow++;
-            // PlaySound(clearRowSound);
+            Mix_PlayChannel(-1, clearRowSound, 0);
         }
         else if (completedRow > 0)
         {
@@ -520,17 +527,23 @@ void render()
 
     drawBlock(currentBlock);
 
-    SDL_QueryTexture(scoreTexture, NULL, NULL, &scoreBounds.w, &scoreBounds.h);
-    scoreBounds.x = 365;
-    scoreBounds.y = 15;
-    SDL_RenderCopy(renderer, scoreTexture, NULL, &scoreBounds);
-
     const SDL_Color lightBlue = {59, 85, 162, 255};
 
     SDL_SetRenderDrawColor(renderer, lightBlue.r, lightBlue.g, lightBlue.b, lightBlue.a);
 
+    SDL_RenderCopy(renderer, scoreTextTexture, NULL, &scoreTextBounds);
+
     SDL_Rect scorePlaceHolderRect = {320, 55, 170, 60};
     SDL_RenderFillRect(renderer, &scorePlaceHolderRect);
+
+    updateTextureText(scoreTexture, std::to_string(score).c_str(), font, renderer);
+
+    SDL_QueryTexture(scoreTexture, NULL, NULL, &scoreBounds.w, &scoreBounds.h);
+    scoreBounds.x = 365;
+    scoreBounds.y = 65;
+    SDL_RenderCopy(renderer, scoreTexture, NULL, &scoreBounds);
+
+    SDL_RenderCopy(renderer, nextTexture, NULL, &nextBounds);
 
     SDL_Rect nextBlockPlaceHolderRect = {320, 215, 170, 180};
     SDL_RenderFillRect(renderer, &nextBlockPlaceHolderRect);
@@ -591,15 +604,28 @@ int main(int argc, char *args[])
 
     font = TTF_OpenFont("res/fonts/monogram.ttf", 36);
 
-    updateTextureText(scoreTexture, "Score", font, renderer);
-    updateTextureText(pauseTexture, "Game Paused", font, renderer);
+    updateTextureText(scoreTexture, "0", font, renderer);
 
+    updateTextureText(scoreTextTexture, "Score", font, renderer);
+    SDL_QueryTexture(scoreTextTexture, NULL, NULL, &scoreTextBounds.w, &scoreTextBounds.h);
+    scoreTextBounds.x = 365;
+    scoreTextBounds.y = 15;
+
+    updateTextureText(nextTexture, "Next", font, renderer);
+    SDL_QueryTexture(nextTexture, NULL, NULL, &nextBounds.w, &nextBounds.h);
+    nextBounds.x = 370;
+    nextBounds.y = 175;
+
+    updateTextureText(pauseTexture, "Game Paused", font, renderer);
     SDL_QueryTexture(pauseTexture, NULL, NULL, &pauseBounds.w, &pauseBounds.h);
-    pauseBounds.x = 320;
+    pauseBounds.x = 330;
     pauseBounds.y = 450;
 
     pauseSound = loadSound("res/sounds/okay.wav");
     music = loadMusic("res/music/music.mp3");
+
+    clearRowSound = loadSound("res/sounds/clear.mp3");
+    rotateSound = loadSound("res/sounds/rotate.mp3");
 
     Mix_PlayMusic(music, -1);
 
@@ -627,7 +653,7 @@ int main(int argc, char *args[])
 
         render();
 
-        //capping the game at 60
+        // capping the game at 60
         capFrameRate(currentFrameTime);
     }
 
