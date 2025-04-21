@@ -366,7 +366,7 @@ void handleEvents()
             Mix_PlayChannel(-1, pauseSound, 0);
         }
 
-        if (event.type == SDL_CONTROLLERBUTTONDOWN && event.cbutton.button == SDL_CONTROLLER_BUTTON_DPAD_UP)
+        if (event.type == SDL_CONTROLLERBUTTONDOWN && (event.cbutton.button == SDL_CONTROLLER_BUTTON_DPAD_UP || event.cbutton.button == SDL_CONTROLLER_BUTTON_A))
         {
             rotateBlock(currentBlock);
             Mix_PlayChannel(-1, rotateSound, 0);
