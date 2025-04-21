@@ -19,14 +19,14 @@ TTF_Font *font = nullptr;
 SDL_Texture *pauseTexture = nullptr;
 SDL_Rect pauseBounds;
 
-const int TOTAL_ROWS = 20;
+const int TOTAL_ROWS = 18;
 const int TOTAL_COLUMNS = 10;
 const int CELL_SIZE = 30;
 
 int grid[TOTAL_ROWS][TOTAL_COLUMNS];
 
-const int POSITION_OFFSET = 11;
-const int CELL_OFFSET = 1;
+const int POSITION_OFFSET = 4;
+const int CELL_OFFSET = 2;
 
 bool isGamePaused;
 bool isGameOver;
@@ -533,7 +533,7 @@ void render()
 
     SDL_RenderCopy(renderer, scoreTextTexture, NULL, &scoreTextBounds);
 
-    SDL_Rect scorePlaceHolderRect = {320, 55, 170, 60};
+    SDL_Rect scorePlaceHolderRect = {315, 55, 170, 60};
     SDL_RenderFillRect(renderer, &scorePlaceHolderRect);
 
     updateTextureText(scoreTexture, std::to_string(score).c_str(), font, renderer);
@@ -545,7 +545,7 @@ void render()
 
     SDL_RenderCopy(renderer, nextTexture, NULL, &nextBounds);
 
-    SDL_Rect nextBlockPlaceHolderRect = {320, 215, 170, 180};
+    SDL_Rect nextBlockPlaceHolderRect = {315, 215, 170, 180};
     SDL_RenderFillRect(renderer, &nextBlockPlaceHolderRect);
 
     if (nextBlock.id == 3)
@@ -580,7 +580,10 @@ void render()
 
 int main(int argc, char *args[])
 {
-    window = SDL_CreateWindow("My Window", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, TOTAL_COLUMNS * CELL_SIZE + 200, TOTAL_ROWS * CELL_SIZE + 20, SDL_WINDOW_SHOWN);
+    // SCREEN_WIDTH 10 * 30 = 300 + 200 = 500
+    // SCREEN_HEIGHT 18 * 30 = 540 + 4
+    // need to give a extra offset of 200 width and 20 heigt for the ui
+    window = SDL_CreateWindow("My Window", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, TOTAL_COLUMNS * CELL_SIZE + 200, TOTAL_ROWS * CELL_SIZE + 4, SDL_WINDOW_SHOWN);
     renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
 
     if (startSDL(window, renderer) > 0)
