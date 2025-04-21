@@ -4,6 +4,9 @@
 #include <string>
 #include <map>
 
+using std::vector;
+using std::map;
+
 SDL_Window *window = nullptr;
 SDL_Renderer *renderer = nullptr;
 SDL_GameController *controller = nullptr;
@@ -42,17 +45,16 @@ SDL_Rect nextBounds;
 Mix_Chunk *rotateSound = nullptr;
 Mix_Chunk *clearRowSound = nullptr;
 
-// Vector2, 2 components
 typedef struct Vector2
 {
-    float x; // Vector x component
-    float y; // Vector y component
+    float x; 
+    float y; 
 } Vector2;
 
 typedef struct
 {
     int id;
-    std::map<int, std::vector<Vector2>> cells;
+    map<int, vector<Vector2>> cells;
     int rotationState;
     int columnOffset;
     int rowOffset;
@@ -68,14 +70,14 @@ Block zBlock;
 Block currentBlock;
 Block nextBlock;
 
-std::vector<Block> blocks;
+vector<Block> blocks;
 
-std::vector<Vector2> getCellPositions(Block &block)
+vector<Vector2> getCellPositions(Block &block)
 {
     // getting the reference of the vector instead of copying to create a new one.
-    std::vector<Vector2> &blockTiles = block.cells[block.rotationState];
+    vector<Vector2> &blockTiles = block.cells[block.rotationState];
 
-    std::vector<Vector2> movedTiles;
+    vector<Vector2> movedTiles;
     movedTiles.reserve(blockTiles.size());
 
     for (Vector2 blockTile : blockTiles)
@@ -99,7 +101,7 @@ bool isCellOutside(int cellRow, int cellColumn)
 
 bool isBlockOutside(Block &block)
 {
-    std::vector<Vector2> blockTiles = getCellPositions(block);
+    vector<Vector2> blockTiles = getCellPositions(block);
 
     for (Vector2 blockTile : blockTiles)
     {
@@ -492,7 +494,7 @@ void drawGrid()
 
 void drawBlock(Block &block, int offsetX, int offsetY)
 {
-    std::vector<Vector2> blockTiles = getCellPositions(block);
+    vector<Vector2> blockTiles = getCellPositions(block);
 
     for (Vector2 blockTile : blockTiles)
     {
@@ -506,7 +508,7 @@ void drawBlock(Block &block, int offsetX, int offsetY)
 
 void drawBlock(Block &block)
 {
-    std::vector<Vector2> blockTiles = getCellPositions(block);
+    vector<Vector2> blockTiles = getCellPositions(block);
 
     for (Vector2 blockTile : blockTiles)
     {
