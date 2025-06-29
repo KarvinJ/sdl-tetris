@@ -31,6 +31,17 @@ const int CELL_OFFSET = 2;
 bool isGamePaused;
 bool isGameOver;
 
+const SDL_Color colors[] = {
+    {80, 80, 80, 255},   // lightGrey
+    {47, 230, 23, 255},  // green
+    {232, 18, 18, 255},  // red
+    {226, 116, 17, 255}, // orange
+    {237, 234, 4, 255},  // yellow
+    {166, 0, 247, 255},  // purple
+    {21, 204, 209, 255}, // cyan
+    {13, 64, 216, 255}   // blue
+};
+
 int score;
 
 SDL_Texture *scoreTextTexture = nullptr;
@@ -501,35 +512,25 @@ void initializeBlocks()
     nextBlock = getRandomBlock();
 }
 
-SDL_Color getColorByIndex(int index)
-{
-    const SDL_Color lightGrey = {80, 80, 80, 255};
-    const SDL_Color green = {47, 230, 23, 255};
-    const SDL_Color red = {232, 18, 18, 255};
-    const SDL_Color orange = {226, 116, 17, 255};
-    const SDL_Color yellow = {237, 234, 4, 255};
-    const SDL_Color purple = {166, 0, 247, 255};
-    const SDL_Color cyan = {21, 204, 209, 255};
-    const SDL_Color blue = {13, 64, 216, 255};
-
-    SDL_Color colors[] = {lightGrey, green, red, orange, yellow, purple, cyan, blue};
-
-    return colors[index];
-}
-
 void drawGrid()
 {
-    for (int row = 0; row < TOTAL_ROWS; row++)
-    {
-        for (int column = 0; column < TOTAL_COLUMNS; column++)
-        {
-            int cellValue = grid[row][column];
+    SDL_Rect gridBounds;
+    gridBounds.w = CELL_SIZE - CELL_OFFSET;
+    gridBounds.h = CELL_SIZE - CELL_OFFSET;
 
-            SDL_Color cellColor = getColorByIndex(cellValue);
+    for (int row = 0; row < TOTAL_ROWS; ++row)
+    {
+        for (int column = 0; column < TOTAL_COLUMNS; ++column)
+        {
+            const int cellValue = grid[row][column];
+            const SDL_Color cellColor = colors[cellValue];
+
             SDL_SetRenderDrawColor(renderer, cellColor.r, cellColor.g, cellColor.b, cellColor.a);
 
-            SDL_Rect rect = {column * CELL_SIZE + POSITION_OFFSET, row * CELL_SIZE + POSITION_OFFSET, CELL_SIZE - CELL_OFFSET, CELL_SIZE - CELL_OFFSET};
-            SDL_RenderFillRect(renderer, &rect);
+            gridBounds.x = column * CELL_SIZE + POSITION_OFFSET;
+            gridBounds.y = row * CELL_SIZE + POSITION_OFFSET;
+
+            SDL_RenderFillRect(renderer, &gridBounds);
         }
     }
 }
@@ -540,7 +541,7 @@ void drawBlock(Block &block, int offsetX, int offsetY)
 
     for (Vector2 blockTile : blockTiles)
     {
-        SDL_Color cellColor = getColorByIndex(block.id);
+        SDL_Color cellColor = colors[block.id];
         SDL_SetRenderDrawColor(renderer, cellColor.r, cellColor.g, cellColor.b, cellColor.a);
 
         SDL_Rect rect = {(int)blockTile.y * CELL_SIZE + offsetX, (int)blockTile.x * CELL_SIZE + offsetY, CELL_SIZE - CELL_OFFSET, CELL_SIZE - CELL_OFFSET};
@@ -554,7 +555,7 @@ void drawBlock(Block &block)
 
     for (Vector2 blockTile : blockTiles)
     {
-        SDL_Color cellColor = getColorByIndex(block.id);
+        SDL_Color cellColor = colors[block.id];
         SDL_SetRenderDrawColor(renderer, cellColor.r, cellColor.g, cellColor.b, cellColor.a);
 
         SDL_Rect rect = {(int)blockTile.y * CELL_SIZE + POSITION_OFFSET, (int)blockTile.x * CELL_SIZE + POSITION_OFFSET, CELL_SIZE - CELL_OFFSET, CELL_SIZE - CELL_OFFSET};
