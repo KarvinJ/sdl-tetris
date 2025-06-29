@@ -1,5 +1,4 @@
 #include "sdl_starter.h"
-#include "sdl_assets_loader.h"
 #include <vector>
 #include <string>
 #include <map>
@@ -627,7 +626,7 @@ int main(int argc, char *args[])
     window = SDL_CreateWindow("My Window", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, TOTAL_COLUMNS * CELL_SIZE + 200, TOTAL_ROWS * CELL_SIZE + 4, SDL_WINDOW_SHOWN);
     renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
 
-    if (startSDL(window, renderer) > 0)
+    if (startSDLSystems(window, renderer) > 0)
     {
         return 1;
     }
@@ -695,8 +694,7 @@ int main(int argc, char *args[])
     SDL_DestroyTexture(pauseTexture);
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
-    Mix_CloseAudio();
-    IMG_Quit();
-    TTF_Quit();
-    SDL_Quit();
+    stopSDLSystems();
+
+    return 0;
 }
