@@ -12,6 +12,8 @@ SDL_GameController *controller = nullptr;
 
 Mix_Chunk *pauseSound = nullptr;
 Mix_Music *music = nullptr;
+Mix_Chunk *rotateSound = nullptr;
+Mix_Chunk *clearRowSound = nullptr;
 
 TTF_Font *font = nullptr;
 
@@ -51,9 +53,6 @@ SDL_Rect scoreBounds;
 
 SDL_Texture *nextTexture = nullptr;
 SDL_Rect nextBounds;
-
-Mix_Chunk *rotateSound = nullptr;
-Mix_Chunk *clearRowSound = nullptr;
 
 typedef struct Vector2
 {
@@ -181,7 +180,7 @@ void moveBlock(Block &block, int rowsToMove, int columnsToMove)
     block.columnOffset += columnsToMove;
 }
 
-int rand_range(int min, int max)
+int getRandomNumberBetweenRange(int min, int max)
 {
     return min + rand() / (RAND_MAX / (max - min + 1) + 1);
 }
@@ -193,7 +192,7 @@ Block getRandomBlock()
         blocks = {lBlock, jBlock, iBlock, oBlock, sBlock, tBlock, zBlock};
     }
 
-    int randomIndex = rand_range(0, blocks.size() - 1);
+    int randomIndex = getRandomNumberBetweenRange(0, blocks.size() - 1);
 
     Block actualBlock = blocks[randomIndex];
     blocks.erase(blocks.begin() + randomIndex);
@@ -691,7 +690,12 @@ int main(int argc, char *args[])
 
     Mix_FreeMusic(music);
     Mix_FreeChunk(pauseSound);
+    Mix_FreeChunk(rotateSound);
+    Mix_FreeChunk(clearRowSound);
     SDL_DestroyTexture(pauseTexture);
+    SDL_DestroyTexture(scoreTexture);
+    SDL_DestroyTexture(scoreTextTexture);
+    SDL_DestroyTexture(nextTexture);
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
     stopSDLSystems();
