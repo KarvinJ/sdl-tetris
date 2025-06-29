@@ -4,8 +4,8 @@
 #include <string>
 #include <map>
 
-using std::vector;
 using std::map;
+using std::vector;
 
 SDL_Window *window = nullptr;
 SDL_Renderer *renderer = nullptr;
@@ -47,8 +47,8 @@ Mix_Chunk *clearRowSound = nullptr;
 
 typedef struct Vector2
 {
-    float x; 
-    float y; 
+    float x;
+    float y;
 } Vector2;
 
 typedef struct
@@ -401,6 +401,8 @@ void update(float deltaTime)
     if (!isGameOver && currentKeyStates[SDL_SCANCODE_S])
     {
         score++;
+        updateTextureText(scoreTexture, std::to_string(score).c_str(), font, renderer);
+
         moveBlock(currentBlock, 1, 0);
 
         if (isBlockOutside(currentBlock) || !blockFits(currentBlock))
@@ -413,6 +415,7 @@ void update(float deltaTime)
     if (!isGameOver && SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_DPAD_DOWN))
     {
         score++;
+        updateTextureText(scoreTexture, std::to_string(score).c_str(), font, renderer);
         moveBlock(currentBlock, 1, 0);
 
         if (isBlockOutside(currentBlock) || !blockFits(currentBlock))
@@ -575,8 +578,6 @@ void render()
     SDL_Rect scorePlaceHolderRect = {315, 55, 170, 60};
     SDL_RenderFillRect(renderer, &scorePlaceHolderRect);
 
-    updateTextureText(scoreTexture, std::to_string(score).c_str(), font, renderer);
-
     SDL_QueryTexture(scoreTexture, NULL, NULL, &scoreBounds.w, &scoreBounds.h);
     scoreBounds.x = 365;
     scoreBounds.y = 65;
@@ -630,18 +631,9 @@ int main(int argc, char *args[])
         return 1;
     }
 
-    if (SDL_NumJoysticks() < 1)
-    {
-        SDL_Log("No game controllers connected!");
-    }
-    else
+    if (SDL_NumJoysticks() > 0 && SDL_IsGameController(0))
     {
         controller = SDL_GameControllerOpen(0);
-        if (controller == NULL)
-        {
-            SDL_Log("Unable to open game controller! SDL Error: %s\n", SDL_GetError());
-            return 1;
-        }
     }
 
     font = TTF_OpenFont("res/fonts/monogram.ttf", 36);
@@ -683,8 +675,6 @@ int main(int argc, char *args[])
         currentFrameTime = SDL_GetTicks();
         deltaTime = (currentFrameTime - previousFrameTime) / 1000.0f;
         previousFrameTime = currentFrameTime;
-
-        SDL_GameControllerUpdate();
 
         handleEvents();
 
