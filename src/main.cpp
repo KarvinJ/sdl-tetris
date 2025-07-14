@@ -1,11 +1,10 @@
 #include "sdl_starter.h"
+#include "fileManager.h"
 #include <vector>
-#include <iostream>
+#include <string>
 #include <map>
-#include <fstream>
 
 using std::map;
-using std::string;
 using std::vector;
 
 SDL_Window *window = nullptr;
@@ -52,48 +51,6 @@ SDL_Rect highScoreBounds;
 
 SDL_Texture *nextTexture = nullptr;
 SDL_Rect nextBounds;
-
-void saveScore(int score)
-{
-    std::ofstream highScoreFile("high-score.txt");
-
-    highScoreFile << std::to_string(score);
-
-    highScoreFile.close();
-}
-
-void saveHighScore(int &score, int &highScore)
-{
-    if (score > highScore)
-    {
-        highScore = score;
-        updateTextureText(highScoreTexture, std::to_string(highScore).c_str(), font, renderer);
-        saveScore(score);
-        score = 0;
-    }
-}
-
-int loadHighScore()
-{
-    string highScoreText;
-
-    std::ifstream highScoreFile("high-score.txt");
-
-    // if the highscore file doesn't exist just create the file and return 0
-    if (!highScoreFile.is_open())
-    {
-        saveScore(0);
-        return 0;
-    }
-
-    getline(highScoreFile, highScoreText);
-
-    highScoreFile.close();
-
-    int highScore = stoi(highScoreText);
-
-    return highScore;
-}
 
 typedef struct Vector2
 {
@@ -369,11 +326,14 @@ void handleEvents()
 
         if (isGameOver && (event.type == SDL_KEYDOWN || event.type == SDL_CONTROLLERBUTTONDOWN))
         {
+            isGameOver = false;
+
             saveHighScore(score, highScore);
             initializeGrid();
-            isGameOver = false;
             currentBlock = getRandomBlock();
             nextBlock = getRandomBlock();
+
+            updateTextureText(highScoreTexture, std::to_string(highScore).c_str(), font, renderer);
             updateTextureText(scoreTexture, "0", font, renderer);
         }
 
