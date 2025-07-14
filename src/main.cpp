@@ -1,9 +1,11 @@
 #include "sdl_starter.h"
 #include <vector>
-#include <string>
+#include <iostream>
 #include <map>
+#include <fstream>
 
 using std::map;
+using std::string;
 using std::vector;
 
 SDL_Window *window = nullptr;
@@ -15,11 +17,6 @@ Mix_Music *music = nullptr;
 Mix_Chunk *rotateSound = nullptr;
 Mix_Chunk *clearRowSound = nullptr;
 
-TTF_Font *font = nullptr;
-
-SDL_Texture *pauseTexture = nullptr;
-SDL_Rect pauseBounds;
-
 const int TOTAL_ROWS = 18;
 const int TOTAL_COLUMNS = 10;
 const int CELL_SIZE = 30;
@@ -29,21 +26,17 @@ int grid[TOTAL_ROWS][TOTAL_COLUMNS];
 const int POSITION_OFFSET = 4;
 const int CELL_OFFSET = 2;
 
-bool isGamePaused;
-bool isGameOver;
+int score = 0;
+int highScore = 0;
 
-const SDL_Color colors[] = {
-    {80, 80, 80, 255},   // lightGrey
-    {47, 230, 23, 255},  // green
-    {232, 18, 18, 255},  // red
-    {226, 116, 17, 255}, // orange
-    {237, 234, 4, 255},  // yellow
-    {166, 0, 247, 255},  // purple
-    {21, 204, 209, 255}, // cyan
-    {13, 64, 216, 255}   // blue
-};
+bool isGamePaused = false;
+bool isGameRunning = true;
+bool isGameOver = false;
 
-int score;
+TTF_Font *font = nullptr;
+
+SDL_Texture *pauseTexture = nullptr;
+SDL_Rect pauseBounds;
 
 SDL_Texture *scoreTextTexture = nullptr;
 SDL_Rect scoreTextBounds;
@@ -51,8 +44,56 @@ SDL_Rect scoreTextBounds;
 SDL_Texture *scoreTexture = nullptr;
 SDL_Rect scoreBounds;
 
+SDL_Texture *highScoreTextTexture = nullptr;
+SDL_Rect highScoreTextBounds;
+
+SDL_Texture *highScoreTexture = nullptr;
+SDL_Rect highScoreBounds;
+
 SDL_Texture *nextTexture = nullptr;
 SDL_Rect nextBounds;
+
+void saveScore(int score)
+{
+    std::ofstream highScoreFile("high-score.txt");
+
+    highScoreFile << std::to_string(score);
+
+    highScoreFile.close();
+}
+
+void saveHighScore(int &score, int &highScore)
+{
+    if (score > highScore)
+    {
+        highScore = score;
+        updateTextureText(highScoreTexture, std::to_string(highScore).c_str(), font, renderer);
+        saveScore(score);
+        score = 0;
+    }
+}
+
+int loadHighScore()
+{
+    string highScoreText;
+
+    std::ifstream highScoreFile("high-score.txt");
+
+    // if the highscore file doesn't exist just create the file and return 0
+    if (!highScoreFile.is_open())
+    {
+        saveScore(0);
+        return 0;
+    }
+
+    getline(highScoreFile, highScoreText);
+
+    highScoreFile.close();
+
+    int highScore = stoi(highScoreText);
+
+    return highScore;
+}
 
 typedef struct Vector2
 {
@@ -323,16 +364,17 @@ void handleEvents()
     {
         if (event.type == SDL_QUIT || event.key.keysym.sym == SDLK_ESCAPE)
         {
-            exit(0);
+            isGameRunning = false;
         }
 
         if (isGameOver && (event.type == SDL_KEYDOWN || event.type == SDL_CONTROLLERBUTTONDOWN))
         {
+            saveHighScore(score, highScore);
             initializeGrid();
             isGameOver = false;
-            score = 0;
             currentBlock = getRandomBlock();
             nextBlock = getRandomBlock();
+            updateTextureText(scoreTexture, "0", font, renderer);
         }
 
         // To handle key pressed more precise, I use this method for handling pause the game or jumping.
@@ -510,6 +552,17 @@ void initializeBlocks()
     nextBlock = getRandomBlock();
 }
 
+const SDL_Color colors[] = {
+    {80, 80, 80, 255},   // lightGrey
+    {47, 230, 23, 255},  // green
+    {232, 18, 18, 255},  // red
+    {226, 116, 17, 255}, // orange
+    {237, 234, 4, 255},  // yellow
+    {166, 0, 247, 255},  // purple
+    {21, 204, 209, 255}, // cyan
+    {13, 64, 216, 255}   // blue
+};
+
 void drawGrid()
 {
     SDL_Rect gridBounds;
@@ -574,13 +627,23 @@ void render()
 
     SDL_RenderCopy(renderer, scoreTextTexture, NULL, &scoreTextBounds);
 
-    SDL_Rect scorePlaceHolderRect = {315, 55, 170, 60};
+    SDL_Rect scorePlaceHolderRect = {315, 55, 170, 40};
     SDL_RenderFillRect(renderer, &scorePlaceHolderRect);
 
     SDL_QueryTexture(scoreTexture, NULL, NULL, &scoreBounds.w, &scoreBounds.h);
-    scoreBounds.x = 365;
-    scoreBounds.y = 65;
+    scoreBounds.x = 385;
+    scoreBounds.y = 60;
     SDL_RenderCopy(renderer, scoreTexture, NULL, &scoreBounds);
+
+    SDL_RenderCopy(renderer, highScoreTextTexture, NULL, &highScoreTextBounds);
+
+    SDL_Rect highScorePlaceHolderRect = {315, 460, 170, 40};
+    SDL_RenderFillRect(renderer, &highScorePlaceHolderRect);
+
+    SDL_QueryTexture(highScoreTexture, NULL, NULL, &highScoreBounds.w, &highScoreBounds.h);
+    highScoreBounds.x = 385;
+    highScoreBounds.y = highScorePlaceHolderRect.y + 5;
+    SDL_RenderCopy(renderer, highScoreTexture, NULL, &highScoreBounds);
 
     SDL_RenderCopy(renderer, nextTexture, NULL, &nextBounds);
 
@@ -637,22 +700,31 @@ int main(int argc, char *args[])
 
     font = TTF_OpenFont("res/fonts/monogram.ttf", 36);
 
-    updateTextureText(scoreTexture, "0", font, renderer);
-
     updateTextureText(scoreTextTexture, "Score", font, renderer);
     SDL_QueryTexture(scoreTextTexture, NULL, NULL, &scoreTextBounds.w, &scoreTextBounds.h);
     scoreTextBounds.x = 365;
-    scoreTextBounds.y = 15;
+    scoreTextBounds.y = scoreTextBounds.h / 2;
+
+    updateTextureText(scoreTexture, "0", font, renderer);
 
     updateTextureText(nextTexture, "Next", font, renderer);
     SDL_QueryTexture(nextTexture, NULL, NULL, &nextBounds.w, &nextBounds.h);
     nextBounds.x = 370;
     nextBounds.y = 175;
 
+    updateTextureText(highScoreTextTexture, "High Score", font, renderer);
+    SDL_QueryTexture(highScoreTextTexture, NULL, NULL, &highScoreTextBounds.w, &highScoreTextBounds.h);
+    highScoreTextBounds.x = 330;
+    highScoreTextBounds.y = 420;
+
+    highScore = loadHighScore();
+
+    updateTextureText(highScoreTexture, std::to_string(highScore).c_str(), font, renderer);
+
     updateTextureText(pauseTexture, "Game Paused", font, renderer);
     SDL_QueryTexture(pauseTexture, NULL, NULL, &pauseBounds.w, &pauseBounds.h);
     pauseBounds.x = 330;
-    pauseBounds.y = 450;
+    pauseBounds.y = 120;
 
     pauseSound = loadSound("res/sounds/okay.wav");
     music = loadMusic("res/music/music.wav");
@@ -669,7 +741,7 @@ int main(int argc, char *args[])
     Uint32 currentFrameTime = previousFrameTime;
     float deltaTime = 0.0f;
 
-    while (true)
+    while (isGameRunning)
     {
         currentFrameTime = SDL_GetTicks();
         deltaTime = (currentFrameTime - previousFrameTime) / 1000.0f;
@@ -695,6 +767,8 @@ int main(int argc, char *args[])
     SDL_DestroyTexture(pauseTexture);
     SDL_DestroyTexture(scoreTexture);
     SDL_DestroyTexture(scoreTextTexture);
+    SDL_DestroyTexture(highScoreTexture);
+    SDL_DestroyTexture(highScoreTextTexture);
     SDL_DestroyTexture(nextTexture);
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
