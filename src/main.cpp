@@ -231,6 +231,7 @@ void moveRowDown(int row, int totalRows)
 int clearFullRow()
 {
     int completedRow = 0;
+    
     for (int row = TOTAL_ROWS - 1; row >= 0; row--)
     {
         if (isRowFull(row))
@@ -337,69 +338,74 @@ void handleEvents()
             updateTextureText(scoreTexture, "0", font, renderer);
         }
 
-        // To handle key pressed more precise, I use this method for handling pause the game or jumping.
-        if (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_SPACE)
+        if (event.type == SDL_KEYDOWN)
         {
-            isGamePaused = !isGamePaused;
-            Mix_PlayChannel(-1, pauseSound, 0);
-        }
-
-        if (!isGameOver && event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_w)
-        {
-            rotateBlock(currentBlock);
-            Mix_PlayChannel(-1, rotateSound, 0);
-        }
-
-        if (!isGameOver && event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_d)
-        {
-            moveBlock(currentBlock, 0, 1);
-
-            if (isBlockOutside(currentBlock) || !blockFits(currentBlock))
+            if (event.key.keysym.sym == SDLK_SPACE)
             {
-                moveBlock(currentBlock, 0, -1);
+                isGamePaused = !isGamePaused;
+                Mix_PlayChannel(-1, pauseSound, 0);
             }
-        }
 
-        else if (!isGameOver && event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_a)
-        {
-            moveBlock(currentBlock, 0, -1);
+            if (event.key.keysym.sym == SDLK_w)
+            {
+                rotateBlock(currentBlock);
+                Mix_PlayChannel(-1, rotateSound, 0);
+            }
 
-            if (isBlockOutside(currentBlock) || !blockFits(currentBlock))
+            else if (event.key.keysym.sym == SDLK_d)
             {
                 moveBlock(currentBlock, 0, 1);
+
+                if (isBlockOutside(currentBlock) || !blockFits(currentBlock))
+                {
+                    moveBlock(currentBlock, 0, -1);
+                }
+            }
+
+            else if (event.key.keysym.sym == SDLK_a)
+            {
+                moveBlock(currentBlock, 0, -1);
+
+                if (isBlockOutside(currentBlock) || !blockFits(currentBlock))
+                {
+                    moveBlock(currentBlock, 0, 1);
+                }
             }
         }
 
         // controller support
-        if (event.type == SDL_CONTROLLERBUTTONDOWN && event.cbutton.button == SDL_CONTROLLER_BUTTON_START)
+        if (event.type == SDL_CONTROLLERBUTTONDOWN)
         {
-            isGamePaused = !isGamePaused;
-            Mix_PlayChannel(-1, pauseSound, 0);
-        }
-
-        if (event.type == SDL_CONTROLLERBUTTONDOWN && (event.cbutton.button == SDL_CONTROLLER_BUTTON_DPAD_UP || event.cbutton.button == SDL_CONTROLLER_BUTTON_A))
-        {
-            rotateBlock(currentBlock);
-            Mix_PlayChannel(-1, rotateSound, 0);
-        }
-
-        if (event.type == SDL_CONTROLLERBUTTONDOWN && event.cbutton.button == SDL_CONTROLLER_BUTTON_DPAD_RIGHT)
-        {
-            moveBlock(currentBlock, 0, 1);
-
-            if (isBlockOutside(currentBlock) || !blockFits(currentBlock))
+            if (event.cbutton.button == SDL_CONTROLLER_BUTTON_START)
             {
-                moveBlock(currentBlock, 0, -1);
+                isGamePaused = !isGamePaused;
+                Mix_PlayChannel(-1, pauseSound, 0);
             }
-        }
 
-        else if (event.type == SDL_CONTROLLERBUTTONDOWN && event.cbutton.button == SDL_CONTROLLER_BUTTON_DPAD_LEFT)
-        {
-            moveBlock(currentBlock, 0, -1);
+            if (event.cbutton.button == SDL_CONTROLLER_BUTTON_DPAD_UP || event.cbutton.button == SDL_CONTROLLER_BUTTON_A)
+            {
+                rotateBlock(currentBlock);
+                Mix_PlayChannel(-1, rotateSound, 0);
+            }
 
-            if (isBlockOutside(currentBlock) || !blockFits(currentBlock))
+            else if (event.cbutton.button == SDL_CONTROLLER_BUTTON_DPAD_RIGHT)
             {
                 moveBlock(currentBlock, 0, 1);
+
+                if (isBlockOutside(currentBlock) || !blockFits(currentBlock))
+                {
+                    moveBlock(currentBlock, 0, -1);
+                }
+            }
+
+            else if (event.cbutton.button == SDL_CONTROLLER_BUTTON_DPAD_LEFT)
+            {
+                moveBlock(currentBlock, 0, -1);
+
+                if (isBlockOutside(currentBlock) || !blockFits(currentBlock))
+                {
+                    moveBlock(currentBlock, 0, 1);
+                }
             }
         }
     }
@@ -409,24 +415,11 @@ void update(float deltaTime)
 {
     const Uint8 *currentKeyStates = SDL_GetKeyboardState(NULL);
 
-    if (!isGameOver && currentKeyStates[SDL_SCANCODE_S])
+    if (!isGameOver && (currentKeyStates[SDL_SCANCODE_S] || SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_DPAD_DOWN)))
     {
         score++;
         updateTextureText(scoreTexture, std::to_string(score).c_str(), font, renderer);
 
-        moveBlock(currentBlock, 1, 0);
-
-        if (isBlockOutside(currentBlock) || !blockFits(currentBlock))
-        {
-            moveBlock(currentBlock, -1, 0);
-            lockBlock(currentBlock);
-        }
-    }
-
-    if (!isGameOver && SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_DPAD_DOWN))
-    {
-        score++;
-        updateTextureText(scoreTexture, std::to_string(score).c_str(), font, renderer);
         moveBlock(currentBlock, 1, 0);
 
         if (isBlockOutside(currentBlock) || !blockFits(currentBlock))

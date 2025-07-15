@@ -17,6 +17,8 @@ void saveHighScore(int &score, int &highScore)
         saveScore(score);
         score = 0;
     }
+
+    score = 0;
 }
 
 int loadHighScore()
