@@ -415,7 +415,7 @@ void update(float deltaTime)
 {
     const Uint8 *currentKeyStates = SDL_GetKeyboardState(NULL);
 
-    if (!isGameOver && (currentKeyStates[SDL_SCANCODE_S] || SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_DPAD_DOWN)))
+    if (currentKeyStates[SDL_SCANCODE_S] || SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_DPAD_DOWN))
     {
         score++;
         updateTextureText(scoreTexture, std::to_string(score).c_str(), font, renderer);
